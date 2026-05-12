@@ -2,11 +2,11 @@
 
 Hosting cho 2 AAR + 1 dist tarball của [`nexaxvn/PDF-Reader`](https://github.com/nexaxvn/PDF-Reader).
 
-| Loại | Tên |
-|---|---|
-| AAR (GitHub Packages) | `global.nexax:pdf-native-libs` |
-| AAR (GitHub Packages) | `global.nexax:libreoffice-editor` |
-| Tarball (Releases) | `libreoffice-dist-vX.Y.Z.tar.gz` — source: [`libreoffice-dist/`](./libreoffice-dist) |
+| Artifact | Nơi lưu | Bump khi |
+|---|---|---|
+| `global.nexax:pdf-native-libs` | GitHub Packages | đổi `.so` |
+| `global.nexax:libreoffice-editor` | GitHub Packages | đổi code Java/res/manifest module `:LibreOfficeEditor` **hoặc** đổi `.so` **hoặc** đổi web bundle |
+| `libreoffice-dist-vX.Y.Z.tar.gz` | Releases (source: [`libreoffice-dist/`](./libreoffice-dist)) | đổi web bundle |
 
 Maven URL: `https://maven.pkg.github.com/nexaxvn/pdf-reader-native`
 
@@ -19,30 +19,58 @@ gpr.user=<bot-username>
 gpr.token=ghp_xxx   # Classic PAT, scope: repo + write:packages. Bot phải có role Write.
 ```
 
-## Bump version
+## Quy trình bump version
 
-### A. Đổi `.so`
+Sau khi PR đã merge vào branch chính (`master-1.1` / `main`), checkout branch đó → pull → làm các bước tương ứng với loại thay đổi.
+
+### Case 1 — Sửa code `:LibreOfficeEditor` (Java/Kotlin/res/manifest)
 
 ```sh
-# 1. Thay 15 file .so trong native-libs/src/main/jniLibs/arm64-v8a/
-# 2. Bump native-libs/build.gradle.kts: version = "X.Y.Z"
-./gradlew -PincludePublishers=true :native-libs:publishReleasePublicationToGitHubPackagesRepository --no-daemon
+# trong PDF-Reader, đã ở branch chính sau merge
 
-# 3. Bump LibreOfficeEditor/build.gradle.kts:
-#       api("global.nexax:pdf-native-libs:X.Y.Z")
-#       version = "X.Y.Z"
-./gradlew -PincludePublishers=true :LibreOfficeEditor:publishReleasePublicationToGitHubPackagesRepository --no-daemon
+# 1. Bump version trong LibreOfficeEditor/build.gradle.kts
+#       version = "1.0.1"
 
-# 4. app/build.gradle.kts: implementation("global.nexax:libreoffice-editor:X.Y.Z")
+# 2. Publish
+./gradlew -PincludePublishers=true \
+  :LibreOfficeEditor:publishReleasePublicationToGitHubPackagesRepository --no-daemon
+
+# 3. Bump consumer trong app/build.gradle.kts
+#       implementation("global.nexax:libreoffice-editor:1.0.1")
+
+# 4. Smoke test + commit
+./gradlew :app:assembleDebug --no-daemon
+git commit -am "chore: bump libreoffice-editor to 1.0.1" && git push
 ```
 
-### B. Đổi web bundle
+### Case 2 — Đổi `.so`
 
 ```sh
-# 1. Sửa libreoffice-dist/ trong repo này, commit + push.
+# 1. Thay 15 file vào native-libs/src/main/jniLibs/arm64-v8a/
+
+# 2. Bump native-libs/build.gradle.kts → version = "1.0.1", publish
+./gradlew -PincludePublishers=true \
+  :native-libs:publishReleasePublicationToGitHubPackagesRepository --no-daemon
+
+# 3. Bump LibreOfficeEditor/build.gradle.kts:
+#       api("global.nexax:pdf-native-libs:1.0.1")
+#       version = "1.0.1"
+./gradlew -PincludePublishers=true \
+  :LibreOfficeEditor:publishReleasePublicationToGitHubPackagesRepository --no-daemon
+
+# 4. app/build.gradle.kts: implementation("global.nexax:libreoffice-editor:1.0.1")
+#    → smoke test → commit → push
+```
+
+### Case 3 — Đổi web bundle
+
+```sh
+# trong clone của repo này (pdf-reader-native), branch main
+
+# 1. Sửa libreoffice-dist/, commit, push.
 
 # 2. Build tarball + sha256
-VERSION=X.Y.Z
+VERSION=1.0.1
 tar --no-xattrs -czf /tmp/libreoffice-dist-$VERSION.tar.gz \
     --transform "s,^libreoffice-dist,dist," libreoffice-dist
 shasum -a 256 /tmp/libreoffice-dist-$VERSION.tar.gz
@@ -57,19 +85,19 @@ curl -s -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/
   --data-binary @/tmp/libreoffice-dist-$VERSION.tar.gz \
   "$UPLOAD?name=libreoffice-dist-$VERSION.tar.gz"
 
-# 4. Bump LibreOfficeEditor/build.gradle.kts:
-#       val distVersion = "X.Y.Z"
+# 4. Trong PDF-Reader, LibreOfficeEditor/build.gradle.kts:
+#       val distVersion = "1.0.1"
 #       val distSha256  = "<sha256>"
-#       version = "X.Y.Z"
-./gradlew -PincludePublishers=true :LibreOfficeEditor:publishReleasePublicationToGitHubPackagesRepository --no-daemon
+#       version = "1.0.1"
+./gradlew -PincludePublishers=true \
+  :LibreOfficeEditor:publishReleasePublicationToGitHubPackagesRepository --no-daemon
 
-# 5. app/build.gradle.kts: implementation("global.nexax:libreoffice-editor:X.Y.Z")
+# 5. app/build.gradle.kts: bump → smoke test → commit → push
 ```
 
-### C. Đổi cả 2 → chạy B (1–4) rồi A (1–4).
+> **Đổi nhiều thứ cùng lúc**: chạy Case 3 trước (release dist) → Case 2 (release .so) → cuối cùng publish `libreoffice-editor` **một lần** với cả 3 thay đổi (dist version, native-libs version, code mới), rồi bump consumer.
 
-## Verify
+## Quy tắc
 
-```sh
-./gradlew :app:assembleDebug --no-daemon
-```
+- Version đã publish lên GitHub Packages **không thể ghi đè** — luôn bump version mới.
+- Mỗi lần publish `libreoffice-editor`: bắt buộc bump `version`, kể cả nếu chỉ đổi 1 dòng code.
