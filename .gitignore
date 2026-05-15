@@ -1,0 +1,15 @@
+# Build outputs
+/build
+/.gradle
+**/build/
+
+# IDE
+/.idea
+*.iml
+
+# Local config (credentials, sdk path)
+local.properties
+
+# Module-level
+libreoffice-editor/build/
+libreoffice-editor/src/main/assets/dist/

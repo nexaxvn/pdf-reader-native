@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="org.libreoffice.androidlib">
+
+    <application>
+
+        <activity
+            android:name="org.libreoffice.androidlib.LOActivity"
+            android:configChanges="screenSize|screenLayout|orientation|keyboardHidden"
+            android:exported="false"
+            android:hardwareAccelerated="true"
+            android:launchMode="singleTask"
+            android:process=":loengine"
+            android:theme="@style/Theme.LOActivity">
+        </activity>
+
+    </application>
+
+</manifest>

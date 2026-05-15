@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="office_file_loading">Đang mở tài liệu</string>
+    <string name="office_file_exiting">Đang đóng tài liệu</string>
+    <string name="lolib_progress_subtitle">Vui lòng đợi…</string>
+</resources>
